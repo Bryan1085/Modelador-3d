@@ -1005,7 +1005,7 @@ export const OutlinerPanel: React.FC<OutlinerPanelProps> = ({
                       const axisColors = [
                         'text-[#e05252]',
                         'text-[#52b852]',
-                        'text-[#4a8fe7]',
+                        'text-[#48bce8]',
                       ];
                       return (
                         <label
@@ -1098,12 +1098,12 @@ export const OutlinerPanel: React.FC<OutlinerPanelProps> = ({
                           }
                           className="w-full h-9 px-2 rounded bg-[#111317] border border-[#2b2e36] text-xs text-[#e4e6eb] outline-none focus:border-[#ff9900] disabled:opacity-45"
                         >
-                          <option value="front">Frontal (+Z)</option>
-                          <option value="back">Posterior (-Z)</option>
+                          <option value="front">Frontal (-Y)</option>
+                          <option value="back">Posterior (+Y)</option>
                           <option value="left">Lateral izquierda (-X)</option>
                           <option value="right">Lateral derecha (+X)</option>
-                          <option value="top">Superior (+Y)</option>
-                          <option value="bottom">Inferior (-Y)</option>
+                          <option value="top">Superior (+Z)</option>
+                          <option value="bottom">Inferior (-Z)</option>
                           <option value="free">Orientación libre</option>
                         </select>
                       </div>
@@ -1199,7 +1199,7 @@ export const OutlinerPanel: React.FC<OutlinerPanelProps> = ({
                         const axisColors = [
                           'text-[#e05252]',
                           'text-[#52b852]',
-                          'text-[#4a8fe7]',
+                          'text-[#48bce8]',
                         ];
                         return (
                           <label

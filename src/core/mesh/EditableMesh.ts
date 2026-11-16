@@ -315,7 +315,7 @@ export class EditableMesh {
 
   public computeFaceNormal(face: MeshFace): Vec3 {
     const n = face.vertexIds.length;
-    if (n < 3) return [0, 1, 0];
+    if (n < 3) return [0, 0, 1];
     let nx = 0;
     let ny = 0;
     let nz = 0;
@@ -328,7 +328,7 @@ export class EditableMesh {
       nz += (curr[0] - next[0]) * (curr[1] + next[1]);
     }
     const len = Math.hypot(nx, ny, nz);
-    if (len < 1e-8) return [0, 1, 0];
+    if (len < 1e-8) return [0, 0, 1];
     return [nx / len, ny / len, nz / len];
   }
 
@@ -585,7 +585,7 @@ export class EditableMesh {
 
   public computeVertexNormal(vertexId: string): Vec3 {
     const faceIds = this.getFacesForVertex(vertexId);
-    if (faceIds.length === 0) return [0, 1, 0];
+    if (faceIds.length === 0) return [0, 0, 1];
     let nx = 0;
     let ny = 0;
     let nz = 0;
@@ -598,7 +598,7 @@ export class EditableMesh {
       nz += fn[2];
     }
     const len = Math.hypot(nx, ny, nz);
-    if (len < 1e-8) return [0, 1, 0];
+    if (len < 1e-8) return [0, 0, 1];
     return [nx / len, ny / len, nz / len];
   }
 

@@ -26,12 +26,18 @@ import {
   RadialWorkMode,
 } from '../core/radial/radialActions';
 import { EMPTY_MODIFIER_STATE } from '../engine/TouchGestureManager';
-import { ViewportContextInfo, ViewportEngine } from '../engine/ViewportEngine';
+import {
+  CameraPreset,
+  CameraQuaternionTuple,
+  ViewportContextInfo,
+  ViewportEngine,
+} from '../engine/ViewportEngine';
 import {
   EditOperatorParams,
   EditOperatorSession,
   EditOperatorType,
 } from '../state/useModelerStore';
+import { AxisGizmoHandle, AxisGizmoWidget } from './AxisGizmoWidget';
 import { EditOperatorBar } from './EditOperatorBar';
 import { FloatingRadialMenu } from './FloatingRadialMenu';
 import {
@@ -173,9 +179,35 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   const viewportContainerRef = useRef<HTMLDivElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<ViewportEngine | null>(null);
+  const gizmoRef = useRef<AxisGizmoHandle | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [gestureModifiers, setGestureModifiers] =
     useState<TouchModifierState>(EMPTY_MODIFIER_STATE);
+
+  const handleSelectCameraPreset = useCallback(
+    (preset: CameraPreset) => {
+      if (
+        preset === 'front' ||
+        preset === 'back' ||
+        preset === 'top' ||
+        preset === 'bottom' ||
+        preset === 'right' ||
+        preset === 'left'
+      ) {
+        if (projection !== 'orthographic') {
+          engineRef.current?.switchProjection('orthographic');
+          onToggleProjection('orthographic');
+        }
+      } else if (preset === 'iso') {
+        if (projection !== 'perspective') {
+          engineRef.current?.switchProjection('perspective');
+          onToggleProjection('perspective');
+        }
+      }
+      engineRef.current?.setCameraPreset(preset);
+    },
+    [onToggleProjection, projection],
+  );
 
   const handleOpenContextMenu = useCallback(
     (info: ViewportContextInfo) => {
@@ -220,6 +252,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     onOpenContextMenu: handleOpenContextMenu,
     onModifierStateChange: (mods: TouchModifierState) =>
       setGestureModifiers(mods),
+    onCameraPoseChange: (quat: CameraQuaternionTuple) => {
+      gizmoRef.current?.updateOrientation(quat);
+    },
     onLiveObjectTransform,
     onCommitObjectTransform,
     onCommitMeshEdit,
@@ -233,6 +268,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     onOpenContextMenu: handleOpenContextMenu,
     onModifierStateChange: (mods: TouchModifierState) =>
       setGestureModifiers(mods),
+    onCameraPoseChange: (quat: CameraQuaternionTuple) => {
+      gizmoRef.current?.updateOrientation(quat);
+    },
     onLiveObjectTransform,
     onCommitObjectTransform,
     onCommitMeshEdit,
@@ -254,6 +292,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         callbacksRef.current.onOpenContextMenu(info),
       onModifierStateChange: (mods) =>
         callbacksRef.current.onModifierStateChange(mods),
+      onCameraPoseChange: (quat) =>
+        callbacksRef.current.onCameraPoseChange(quat),
       onLiveObjectTransform: (id, transform) =>
         callbacksRef.current.onLiveObjectTransform(id, transform),
       onCommitObjectTransform: (id, before, after) =>
@@ -376,7 +416,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
                 { id: 'free', label: 'Libre', color: 'text-[#e4e6eb]' },
                 { id: 'x', label: 'X', color: 'text-[#e05252]' },
                 { id: 'y', label: 'Y', color: 'text-[#52b852]' },
-                { id: 'z', label: 'Z', color: 'text-[#4a8fe7]' },
+                { id: 'z', label: 'Z', color: 'text-[#48bce8]' },
               ] as const
             ).map((ax) => {
               const active = axisConstraint === ax.id;
@@ -465,13 +505,14 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
                 { id: 'front', label: 'Frontal' },
                 { id: 'top', label: 'Sup.' },
                 { id: 'right', label: 'Der.' },
+                { id: 'left', label: 'Izq.' },
                 { id: 'iso', label: '3D' },
               ] as const
             ).map((view) => (
               <button
                 key={view.id}
                 type="button"
-                onClick={() => engineRef.current?.setCameraPreset(view.id)}
+                onClick={() => handleSelectCameraPreset(view.id)}
                 className="h-8 px-2 rounded text-[11px] font-medium text-[#b4bac4] hover:text-white hover:bg-[#262a33] transition-colors"
               >
                 {view.label}
@@ -488,6 +529,14 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             <Focus className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Encuadrar</span>
           </button>
+        </div>
+
+        {/* Interactive Blender-style Z-Up Axis Gizmo */}
+        <div className="absolute top-14 right-3 z-10 pointer-events-none">
+          <AxisGizmoWidget
+            ref={gizmoRef}
+            onSelectPreset={handleSelectCameraPreset}
+          />
         </div>
 
         {/* Floating Draggable Button & Customizable Radial Menu */}
@@ -527,9 +576,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             onChangeAxisConstraint={onChangeAxisConstraint}
             onDuplicateObject={onDuplicateObject}
             onDeleteObject={onDeleteObject}
-            onSetCameraPreset={(preset) =>
-              engineRef.current?.setCameraPreset(preset)
-            }
+            onSetCameraPreset={handleSelectCameraPreset}
             onToggleProjection={() =>
               onToggleProjection(
                 projection === 'perspective' ? 'orthographic' : 'perspective',

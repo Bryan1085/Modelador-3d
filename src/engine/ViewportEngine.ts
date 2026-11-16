@@ -21,6 +21,43 @@ import {
   TrackedPointer,
 } from './TouchGestureManager';
 
+export type CameraPreset =
+  | 'front'
+  | 'back'
+  | 'top'
+  | 'bottom'
+  | 'right'
+  | 'left'
+  | 'iso'
+  | 'focus';
+
+export type CameraQuaternionTuple = [number, number, number, number];
+
+export function computeCameraPresetOffset(
+  preset: CameraPreset,
+  distance: number,
+): Vec3 {
+  const d = Math.max(0.1, distance);
+  const topEps = Math.max(1e-4, d * 1e-4);
+  switch (preset) {
+    case 'front':
+      return [0, -d, 0];
+    case 'back':
+      return [0, d, 0];
+    case 'right':
+      return [d, 0, 0];
+    case 'left':
+      return [-d, 0, 0];
+    case 'top':
+      return [0, -topEps, d];
+    case 'bottom':
+      return [0, -topEps, -d];
+    case 'iso':
+    case 'focus':
+      return [d * 0.62, -d * 0.68, d * 0.48];
+  }
+}
+
 export interface ViewportContextInfo {
   clientX: number;
   clientY: number;
@@ -40,6 +77,7 @@ export interface ViewportCallbacks {
   onThreeFingerRedo: () => void;
   onOpenContextMenu: (info: ViewportContextInfo) => void;
   onModifierStateChange?: (modifiers: TouchModifierState) => void;
+  onCameraPoseChange?: (quaternion: CameraQuaternionTuple) => void;
   onLiveObjectTransform: (id: string, transform: ObjectTransform) => void;
   onCommitObjectTransform: (
     id: string,
@@ -239,9 +277,11 @@ export class ViewportEngine {
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
 
-    // Cameras
+    // Cameras (Blender Z-up convention: X horizontal, Y depth, Z vertical)
     this.perspectiveCamera = new THREE.PerspectiveCamera(45, aspect, 0.05, 500);
-    this.perspectiveCamera.position.set(5.2, 4.0, 6.2);
+    this.perspectiveCamera.up.set(0, 0, 1);
+    this.perspectiveCamera.position.set(5.6, -6.2, 4.2);
+    this.perspectiveCamera.lookAt(0, 0, 0);
 
     const frustum = 7;
     this.orthographicCamera = new THREE.OrthographicCamera(
@@ -252,15 +292,17 @@ export class ViewportEngine {
       -100,
       500,
     );
+    this.orthographicCamera.up.set(0, 0, 1);
     this.orthographicCamera.position.copy(this.perspectiveCamera.position);
+    this.orthographicCamera.lookAt(0, 0, 0);
     this.activeCamera = this.perspectiveCamera;
 
-    // 3-Point Studio Lighting
+    // 3-Point Studio Lighting (Z-up)
     const hemi = new THREE.HemisphereLight(0xa6bddb, 0x262930, 0.8);
     this.scene.add(hemi);
 
     const keyLight = new THREE.DirectionalLight(0xfff5e8, 1.45);
-    keyLight.position.set(7, 12, 8);
+    keyLight.position.set(7, -8, 12);
     keyLight.castShadow = !this.isSoftwareGl;
     keyLight.shadow.mapSize.set(1024, 1024);
     keyLight.shadow.camera.left = -10;
@@ -274,22 +316,22 @@ export class ViewportEngine {
     this.scene.add(keyLight);
 
     const rimLight = new THREE.DirectionalLight(0xc2d4ff, 0.55);
-    rimLight.position.set(-8, 6, -7);
+    rimLight.position.set(-8, 7, 6);
     this.scene.add(rimLight);
 
-    // Subtle ground shadow receiver
+    // Subtle ground shadow receiver on XY plane (Z-up floor)
     this.shadowPlane = new THREE.Mesh(
       new THREE.PlaneGeometry(60, 60),
       new THREE.ShadowMaterial({ opacity: 0.22 }),
     );
-    this.shadowPlane.rotation.x = -Math.PI / 2;
-    this.shadowPlane.position.y = -0.004;
+    this.shadowPlane.position.set(0, 0, -0.004);
     this.shadowPlane.receiveShadow = true;
     this.scene.add(this.shadowPlane);
 
-    // Reference Grid
+    // Reference Grid rotated onto XY plane (Z = 0)
     this.gridHelper = new THREE.GridHelper(32, 32, 0x3f444f, 0x2a2d35);
-    this.gridHelper.position.y = 0;
+    this.gridHelper.rotation.x = Math.PI / 2;
+    this.gridHelper.position.set(0, 0, -0.001);
     this.scene.add(this.gridHelper);
 
     // Colored X, Y, Z Axes
@@ -425,6 +467,7 @@ export class ViewportEngine {
       this.renderer.domElement,
     );
     this.transformControls.setSize(1.25);
+    this.transformControls.setColors(0xe05252, 0x52b852, 0x48bce8, 0xffff00);
     this.transformControls.getRaycaster().params.Line.threshold = 0.25;
     this.scene.add(this.transformControls.getHelper());
 
@@ -505,7 +548,14 @@ export class ViewportEngine {
       this.renderer.compile(this.scene, this.activeCamera);
     }
 
+    this.orbitControls.update();
+    this.emitCameraPose();
     this.requestRender();
+  }
+
+  private emitCameraPose(): void {
+    const q = this.activeCamera.quaternion;
+    this.callbacks.onCameraPoseChange?.([q.x, q.y, q.z, q.w]);
   }
 
   private createAxesGroup(): THREE.Group {
@@ -527,7 +577,7 @@ export class ViewportEngine {
 
     group.add(makeAxis([1, 0, 0], 0xe05252)); // X Red
     group.add(makeAxis([0, 1, 0], 0x52b852)); // Y Green
-    group.add(makeAxis([0, 0, 1], 0x4a8fe7)); // Z Blue
+    group.add(makeAxis([0, 0, 1], 0x48bce8)); // Z Sky Blue (#48BCE8)
     return group;
   }
 
@@ -1537,15 +1587,22 @@ export class ViewportEngine {
     this.orbitControls.object = this.activeCamera;
     this.transformControls.camera = this.activeCamera;
     this.orbitControls.update();
+    this.emitCameraPose();
     this.requestRender();
   }
 
-  public setCameraPreset(preset: 'front' | 'top' | 'right' | 'iso' | 'focus'): void {
-    const target = new THREE.Vector3(0, 0, 0);
-    if (preset === 'focus' && this.selectedObjectId) {
-      const visual = this.visuals.get(this.selectedObjectId);
-      if (visual) {
-        target.copy(visual.group.position);
+  public setCameraPreset(preset: CameraPreset): void {
+    const target = this.orbitControls.target.clone();
+    if (preset === 'focus') {
+      if (this.selectedObjectId) {
+        const visual = this.visuals.get(this.selectedObjectId);
+        if (visual) {
+          target.copy(visual.group.position);
+        } else {
+          target.set(0, 0, 0);
+        }
+      } else {
+        target.set(0, 0, 0);
       }
     }
 
@@ -1553,29 +1610,15 @@ export class ViewportEngine {
       2.5,
       this.activeCamera.position.distanceTo(this.orbitControls.target),
     );
-    const offset = new THREE.Vector3();
-
-    switch (preset) {
-      case 'front':
-        offset.set(0, 0, currentDist);
-        break;
-      case 'top':
-        offset.set(0, currentDist, 0.001);
-        break;
-      case 'right':
-        offset.set(currentDist, 0, 0);
-        break;
-      case 'iso':
-      case 'focus':
-        offset.set(currentDist * 0.65, currentDist * 0.5, currentDist * 0.72);
-        break;
-    }
+    const offsetTuple = computeCameraPresetOffset(preset, currentDist);
+    const offset = new THREE.Vector3(...offsetTuple);
 
     const desiredPos = target.clone().add(offset);
     if (this.isSoftwareGl) {
       this.activeCamera.position.copy(desiredPos);
       this.orbitControls.target.copy(target);
       this.orbitControls.update();
+      this.emitCameraPose();
       this.requestRender();
     } else {
       this.cameraAnimTargetPos = desiredPos;
@@ -1675,6 +1718,7 @@ export class ViewportEngine {
       }
 
       const controlsMoved = this.orbitControls.update();
+      this.emitCameraPose();
       this.renderer.render(this.scene, this.activeCamera);
 
       const done = () => {

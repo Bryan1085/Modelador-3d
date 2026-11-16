@@ -172,6 +172,7 @@ export function createNewProject(name = 'Proyecto Sin Título'): ProjectData {
   const initialScene = createDefaultScene('Scene', true);
   return {
     version: 2,
+    coordinateSystem: 'z-up',
     id: generateId('proj'),
     name,
     createdAt: now,
@@ -269,6 +270,7 @@ export function saveProjectLocally(project: ProjectData): ProjectData {
   const updated: ProjectData = {
     ...project,
     version: 2,
+    coordinateSystem: 'z-up',
     updatedAt: Date.now(),
   };
 

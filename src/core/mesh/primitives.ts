@@ -35,10 +35,10 @@ export function createCubeMesh(size = 2): EditableMesh {
   const v7 = mesh.addVertex(-h, h, -h).id;  // 7: back-top-left
 
   // Outward CCW winding
-  mesh.addFace([v0, v1, v2, v3]); // Front (+Z)
-  mesh.addFace([v5, v4, v7, v6]); // Back (-Z)
-  mesh.addFace([v3, v2, v6, v7]); // Top (+Y)
-  mesh.addFace([v4, v5, v1, v0]); // Bottom (-Y)
+  mesh.addFace([v0, v1, v2, v3]); // Top (+Z)
+  mesh.addFace([v5, v4, v7, v6]); // Bottom (-Z)
+  mesh.addFace([v3, v2, v6, v7]); // Back (+Y)
+  mesh.addFace([v4, v5, v1, v0]); // Front (-Y)
   mesh.addFace([v1, v5, v6, v2]); // Right (+X)
   mesh.addFace([v4, v0, v3, v7]); // Left (-X)
 
@@ -46,7 +46,7 @@ export function createCubeMesh(size = 2): EditableMesh {
 }
 
 /**
- * Círculo: 32 vértices conectados mediante 32 aristas, sin cara de relleno inicialmente.
+ * Círculo: 32 vértices sobre el plano horizontal XY (Z = 0), conectados mediante 32 aristas.
  */
 export function createCircleMesh(radius = 1, segments = 32): EditableMesh {
   const mesh = new EditableMesh();
@@ -56,8 +56,8 @@ export function createCircleMesh(radius = 1, segments = 32): EditableMesh {
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;
     const x = Math.cos(angle) * radius;
-    const z = Math.sin(angle) * radius;
-    vertIds.push(mesh.addVertex(x, 0, z).id);
+    const y = Math.sin(angle) * radius;
+    vertIds.push(mesh.addVertex(x, y, 0).id);
   }
 
   for (let i = 0; i < count; i++) {
@@ -68,7 +68,7 @@ export function createCircleMesh(radius = 1, segments = 32): EditableMesh {
 }
 
 /**
- * Esfera UV: resolución configurable mediante segmentos y anillos.
+ * Esfera UV: eje polar vertical en Z, anillos paralelos al plano XY.
  */
 export function createUVSphereMesh(
   radius = 1,
@@ -79,24 +79,24 @@ export function createUVSphereMesh(
   const segs = Math.max(3, Math.min(64, Math.round(segments)));
   const rngs = Math.max(3, Math.min(48, Math.round(rings)));
 
-  const topPole = mesh.addVertex(0, radius, 0).id;
+  const topPole = mesh.addVertex(0, 0, radius).id;
   const ringVerts: string[][] = [];
 
   for (let r = 1; r < rngs; r++) {
     const phi = (r / rngs) * Math.PI;
-    const y = Math.cos(phi) * radius;
+    const z = Math.cos(phi) * radius;
     const ringRadius = Math.sin(phi) * radius;
     const row: string[] = [];
     for (let s = 0; s < segs; s++) {
       const theta = (s / segs) * Math.PI * 2;
       const x = Math.cos(theta) * ringRadius;
-      const z = -Math.sin(theta) * ringRadius;
+      const y = Math.sin(theta) * ringRadius;
       row.push(mesh.addVertex(x, y, z).id);
     }
     ringVerts.push(row);
   }
 
-  const bottomPole = mesh.addVertex(0, -radius, 0).id;
+  const bottomPole = mesh.addVertex(0, 0, -radius).id;
 
   // Top cap triangles (CCW outward)
   const firstRing = ringVerts[0];
@@ -126,7 +126,7 @@ export function createUVSphereMesh(
 }
 
 /**
- * Cilindro: resolución inicial de 16 segmentos.
+ * Cilindro: eje de altura vertical en Z, tapas circulares paralelas al plano XY.
  */
 export function createCylinderMesh(
   radius = 1,
@@ -143,15 +143,15 @@ export function createCylinderMesh(
   for (let s = 0; s < segs; s++) {
     const theta = (s / segs) * Math.PI * 2;
     const x = Math.cos(theta) * radius;
-    const z = -Math.sin(theta) * radius;
-    topRing.push(mesh.addVertex(x, halfH, z).id);
+    const y = Math.sin(theta) * radius;
+    topRing.push(mesh.addVertex(x, y, halfH).id);
   }
 
   for (let s = 0; s < segs; s++) {
     const theta = (s / segs) * Math.PI * 2;
     const x = Math.cos(theta) * radius;
-    const z = -Math.sin(theta) * radius;
-    bottomRing.push(mesh.addVertex(x, -halfH, z).id);
+    const y = Math.sin(theta) * radius;
+    bottomRing.push(mesh.addVertex(x, y, -halfH).id);
   }
 
   // Side quads
@@ -160,37 +160,37 @@ export function createCylinderMesh(
     mesh.addFace([topRing[s], bottomRing[s], bottomRing[nextS], topRing[nextS]]);
   }
 
-  // Top cap (+Y normal)
+  // Top cap (+Z normal)
   mesh.addFace([...topRing]);
 
-  // Bottom cap (-Y normal)
+  // Bottom cap (-Z normal)
   mesh.addFace([...bottomRing].reverse());
 
   return mesh;
 }
 
 /**
- * Pirámide de base cuadrada: 5 vértices, 8 aristas y 5 caras (1 base cuadrada + 4 caras triangulares).
+ * Pirámide de base cuadrada: base paralela al plano XY y vértice superior en +Z.
  */
 export function createPyramidMesh(baseSize = 2, height = 2): EditableMesh {
   const mesh = new EditableMesh();
   const hBase = baseSize / 2;
   const hHeight = height / 2;
 
-  const v0 = mesh.addVertex(-hBase, -hHeight, hBase).id;  // front-left
-  const v1 = mesh.addVertex(hBase, -hHeight, hBase).id;   // front-right
-  const v2 = mesh.addVertex(hBase, -hHeight, -hBase).id;  // back-right
-  const v3 = mesh.addVertex(-hBase, -hHeight, -hBase).id; // back-left
-  const apex = mesh.addVertex(0, hHeight, 0).id;
+  const v0 = mesh.addVertex(-hBase, -hBase, -hHeight).id; // front-left
+  const v1 = mesh.addVertex(hBase, -hBase, -hHeight).id;  // front-right
+  const v2 = mesh.addVertex(hBase, hBase, -hHeight).id;   // back-right
+  const v3 = mesh.addVertex(-hBase, hBase, -hHeight).id;  // back-left
+  const apex = mesh.addVertex(0, 0, hHeight).id;
 
-  // Base face (CCW looking from -Y)
-  mesh.addFace([v3, v2, v1, v0]);
+  // Base face (CCW looking from -Z)
+  mesh.addFace([v0, v3, v2, v1]);
 
   // 4 triangular side faces
-  mesh.addFace([v0, v1, apex]); // Front
-  mesh.addFace([v1, v2, apex]); // Right
-  mesh.addFace([v2, v3, apex]); // Back
-  mesh.addFace([v3, v0, apex]); // Left
+  mesh.addFace([v0, v1, apex]); // Front (-Y)
+  mesh.addFace([v1, v2, apex]); // Right (+X)
+  mesh.addFace([v2, v3, apex]); // Back (+Y)
+  mesh.addFace([v3, v0, apex]); // Left (-X)
 
   return mesh;
 }

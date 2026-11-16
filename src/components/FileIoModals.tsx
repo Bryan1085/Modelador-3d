@@ -227,12 +227,12 @@ export const ReferenceImageImportModal: React.FC<{
             <div className="grid grid-cols-2 gap-1.5">
               {(
                 [
-                  { id: 'front', label: 'Frontal (+Z)' },
-                  { id: 'back', label: 'Posterior (-Z)' },
+                  { id: 'front', label: 'Frontal (-Y)' },
+                  { id: 'back', label: 'Posterior (+Y)' },
                   { id: 'left', label: 'Lateral izquierda (-X)' },
                   { id: 'right', label: 'Lateral derecha (+X)' },
-                  { id: 'top', label: 'Superior (+Y)' },
-                  { id: 'bottom', label: 'Inferior (-Y)' },
+                  { id: 'top', label: 'Superior (+Z)' },
+                  { id: 'bottom', label: 'Inferior (-Z)' },
                 ] as const
               ).map((opt) => (
                 <button

@@ -92,6 +92,7 @@ export interface SceneData {
 
 export interface ProjectData {
   version: number;
+  coordinateSystem?: 'z-up' | 'y-up';
   id: string;
   name: string;
   createdAt: number;

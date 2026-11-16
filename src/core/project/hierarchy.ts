@@ -1,6 +1,8 @@
+import * as THREE from 'three';
 import { createCubeMesh } from '../mesh/primitives';
 import {
   CollectionData,
+  ObjectTransform,
   ProjectData,
   ReferenceImageData,
   ReferenceImageDepthMode,
@@ -16,13 +18,71 @@ export const REFERENCE_ORIENTATION_ROTATIONS: Record<
   Exclude<ReferenceImageOrientation, 'free'>,
   EulerVec3
 > = {
-  front: [0, 0, 0],
-  back: [0, Math.PI, 0],
-  right: [0, Math.PI / 2, 0],
-  left: [0, -Math.PI / 2, 0],
-  top: [-Math.PI / 2, 0, 0],
-  bottom: [Math.PI / 2, 0, 0],
+  front: [Math.PI / 2, 0, 0],
+  back: [Math.PI / 2, Math.PI, 0],
+  right: [Math.PI / 2, Math.PI / 2, 0],
+  left: [Math.PI / 2, -Math.PI / 2, 0],
+  top: [0, 0, 0],
+  bottom: [Math.PI, 0, 0],
 };
+
+const _legacyYUpToZUpQuat = new THREE.Quaternion().setFromEuler(
+  new THREE.Euler(Math.PI / 2, 0, 0, 'XYZ'),
+);
+const _migrationEuler = new THREE.Euler(0, 0, 0, 'XYZ');
+const _migrationQuat = new THREE.Quaternion();
+
+function cleanZero(n: number): number {
+  return Math.abs(n) < 1e-12 ? 0 : n;
+}
+
+/**
+ * Migrates a legacy Y-up ObjectTransform into Blender Z-up space using a rigid
+ * Rx(+90 deg) rotation on object position and rotation without modifying local mesh geometry.
+ */
+export function migrateLegacyYUpTransform(
+  transform?: Partial<ObjectTransform>,
+): ObjectTransform {
+  const pos: EulerVec3 =
+    Array.isArray(transform?.position) && transform.position.length === 3
+      ? [
+          Number(transform.position[0]) || 0,
+          Number(transform.position[1]) || 0,
+          Number(transform.position[2]) || 0,
+        ]
+      : [0, 0, 0];
+  const rot: EulerVec3 =
+    Array.isArray(transform?.rotation) && transform.rotation.length === 3
+      ? [
+          Number(transform.rotation[0]) || 0,
+          Number(transform.rotation[1]) || 0,
+          Number(transform.rotation[2]) || 0,
+        ]
+      : [0, 0, 0];
+  const scale: EulerVec3 =
+    Array.isArray(transform?.scale) && transform.scale.length === 3
+      ? [
+          Number(transform.scale[0]) || 1,
+          Number(transform.scale[1]) || 1,
+          Number(transform.scale[2]) || 1,
+        ]
+      : [1, 1, 1];
+
+  const nextPos: EulerVec3 = [cleanZero(pos[0]), cleanZero(-pos[2]), cleanZero(pos[1])];
+  _migrationEuler.set(rot[0], rot[1], rot[2], 'XYZ');
+  _migrationQuat.setFromEuler(_migrationEuler).premultiply(_legacyYUpToZUpQuat);
+  _migrationEuler.setFromQuaternion(_migrationQuat, 'XYZ');
+
+  return {
+    position: nextPos,
+    rotation: [
+      cleanZero(_migrationEuler.x),
+      cleanZero(_migrationEuler.y),
+      cleanZero(_migrationEuler.z),
+    ],
+    scale: [scale[0], scale[1], scale[2]],
+  };
+}
 
 export function isEditableMeshObject(
   obj: SceneObjectData | null | undefined,
@@ -180,6 +240,7 @@ export function normalizeProjectHierarchy(raw: unknown): ProjectData | null {
     objects?: SceneObjectData[];
   };
 
+  const shouldMigrateFromYUp = candidate.coordinateSystem !== 'z-up';
   const now = Date.now();
   const baseId =
     typeof candidate.id === 'string' && candidate.id
@@ -312,8 +373,23 @@ export function normalizeProjectHierarchy(raw: unknown): ProjectData | null {
                   }
                 : undefined;
 
+            const migratedTransform = shouldMigrateFromYUp
+              ? migrateLegacyYUpTransform(o.transform)
+              : o.transform;
+            const migratedRef =
+              normalizedRef && shouldMigrateFromYUp
+                ? {
+                    ...normalizedRef,
+                    orientation:
+                      normalizedRef.orientation === 'free'
+                        ? ('free' as const)
+                        : detectOrientationFromRotation(migratedTransform.rotation),
+                  }
+                : normalizedRef;
+
             return {
               ...o,
+              transform: migratedTransform,
               objectType,
               collectionId:
                 typeof o.collectionId === 'string' && colIdSet.has(o.collectionId)
@@ -322,7 +398,7 @@ export function normalizeProjectHierarchy(raw: unknown): ProjectData | null {
               visible: typeof o.visible === 'boolean' ? o.visible : true,
               locked: typeof o.locked === 'boolean' ? o.locked : false,
               modifiers: Array.isArray(o.modifiers) ? o.modifiers : [],
-              ...(normalizedRef ? { referenceImage: normalizedRef } : {}),
+              ...(migratedRef ? { referenceImage: migratedRef } : {}),
             };
           })
       : [];
@@ -345,6 +421,7 @@ export function normalizeProjectHierarchy(raw: unknown): ProjectData | null {
 
   return {
     version: 2,
+    coordinateSystem: 'z-up',
     id: baseId,
     name: baseName,
     createdAt,

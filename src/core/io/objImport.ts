@@ -186,7 +186,7 @@ export async function parseObjContent(
       if (Number.isFinite(len) && len > 1e-8) {
         globalNormals.push([nx / len, ny / len, nz / len]);
       } else {
-        globalNormals.push([0, 1, 0]);
+        globalNormals.push([0, 0, 1]);
       }
     } else if ((cmd === 'o' || cmd === 'g') && parts.length >= 1) {
       const nextName = parts.slice(1).join(' ').trim() || baseName;

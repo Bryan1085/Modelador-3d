@@ -28,6 +28,7 @@ import {
   RadialMenuLayouts,
   RadialWorkMode,
 } from '../core/radial/radialActions';
+import { CameraPreset } from '../engine/ViewportEngine';
 import { EditOperatorType } from '../state/useModelerStore';
 import { RadialActionIcon } from './RadialActionIcon';
 import { RadialSlotEditorModal } from './RadialSlotEditorModal';
@@ -65,7 +66,7 @@ interface FloatingRadialMenuProps {
   onChangeAxisConstraint: (axis: AxisConstraint) => void;
   onDuplicateObject: () => void;
   onDeleteObject: () => void;
-  onSetCameraPreset: (preset: 'focus' | 'iso' | 'front' | 'top' | 'right') => void;
+  onSetCameraPreset: (preset: CameraPreset) => void;
   onToggleProjection: () => void;
   onToggleWorkMode: (mode: WorkMode) => void;
   onChangeEditSelectionMode: (mode: EditSelectionMode) => void;

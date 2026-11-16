@@ -102,7 +102,7 @@ export const RadialActionIcon: React.FC<RadialActionIconProps> = ({
       );
     case 'axis_z':
       return (
-        <span className="inline-flex items-center justify-center w-4 h-4 text-[11px] font-bold text-[#4a8fe7]">
+        <span className="inline-flex items-center justify-center w-4 h-4 text-[11px] font-bold text-[#48bce8]">
           Z
         </span>
       );

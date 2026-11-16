@@ -111,7 +111,7 @@ function lenVec(a: Vec3): number {
   return Math.hypot(a[0], a[1], a[2]);
 }
 
-function normVec(a: Vec3, fallback: Vec3 = [0, 1, 0]): Vec3 {
+function normVec(a: Vec3, fallback: Vec3 = [0, 0, 1]): Vec3 {
   const l = lenVec(a);
   if (l < 1e-8) return fallback;
   return [a[0] / l, a[1] / l, a[2] / l];
@@ -121,7 +121,7 @@ function axisVector(axis: ExtrudeAxis): Vec3 {
   if (axis === 'x') return [1, 0, 0];
   if (axis === 'y') return [0, 1, 0];
   if (axis === 'z') return [0, 0, 1];
-  return [0, 1, 0];
+  return [0, 0, 1];
 }
 
 function deterministicJitter(id: string): number {
@@ -275,7 +275,7 @@ export function extrudeMesh(
     if (!v) continue;
     const dir =
       axis === 'normal'
-        ? normVec(vertexNormalsAccum.get(vid) ?? [0, 1, 0])
+        ? normVec(vertexNormalsAccum.get(vid) ?? [0, 0, 1])
         : axisVector(axis);
     const pos = addVec(v.position, scaleVec(dir, distance));
     const nv = mesh.addVertex(pos[0], pos[1], pos[2]);
@@ -504,7 +504,7 @@ export function insetFacesMesh(
       );
       vertMap.set(vid, mesh.addVertex(newPos[0], newPos[1], newPos[2]).id);
     } else {
-      const avgNormal = normVec(interiorNormalAccum.get(vid) ?? [0, 1, 0]);
+      const avgNormal = normVec(interiorNormalAccum.get(vid) ?? [0, 0, 1]);
       const newPos = addVec(v.position, scaleVec(avgNormal, depth));
       vertMap.set(vid, mesh.addVertex(newPos[0], newPos[1], newPos[2]).id);
     }
@@ -610,8 +610,8 @@ export function subdivideMesh(
     const maxId = edge.v0 < edge.v1 ? edge.v1 : edge.v0;
     const va = mesh.getVertex(minId)!;
     const vb = mesh.getVertex(maxId)!;
-    const na = vNormals.get(minId) ?? [0, 1, 0];
-    const nb = vNormals.get(maxId) ?? [0, 1, 0];
+    const na = vNormals.get(minId) ?? [0, 0, 1];
+    const nb = vNormals.get(maxId) ?? [0, 0, 1];
     const edgeLen = lenVec(subVec(vb.position, va.position));
 
     const splitIds: string[] = [];
@@ -2132,7 +2132,7 @@ export function fillMesh(
         }
       }
     }
-    const normal = normVec([nx, ny, nz], [0, 1, 0]);
+    const normal = normVec([nx, ny, nz], [0, 0, 1]);
     const ref: Vec3 = Math.abs(normal[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
     const u = normVec(crossVec(ref, normal), [1, 0, 0]);
     const v = normVec(crossVec(normal, u), [0, 0, 1]);
